@@ -1,7 +1,11 @@
 import React, { useState } from "react";
 import { app } from "../../firebase";
 import "./SignupUser.css";
-import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
+import {
+  getAuth,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+} from "firebase/auth";
 import { getDatabase, set, ref } from "firebase/database";
 
 const db = getDatabase(app);
@@ -13,11 +17,27 @@ const SignupUser = () => {
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [existingUser, setExistingUser] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
-  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [showSuccessMessage, setShowSuccessMessage] = useState({
+    currState: false,
+    type: "signin",
+  });
+
+  const handleExistingUser = () => {
+    ClearInputs()
+    setExistingUser((prev) => {
+      const newState = !prev;
+      setShowSuccessMessage({
+        currState: false,
+        type: newState ? "signin" : "signup",
+      });
+      return newState;
+    });
+  };
 
   const createUserInDb = (user, firstName, lastName) => {
-    const userRef = ref(db, "users/" + user.email.replace(".", "_"));
+    const userRef = ref(db, "users/" + user.uid);
     set(userRef, {
       email: user.email,
       uid: user.uid,
@@ -33,74 +53,123 @@ const SignupUser = () => {
       });
   };
 
-  const makeUser = () => {
-    if (email && password && firstName) {
+  const handleCredentials = () => {
+    if (!email || !password) {
+      alert("Please enter email and password to sign in");
+      return;
+    } else if (existingUser) {
+      // sign in logic here
       setIsCreating(true);
-      createUserWithEmailAndPassword(auth, email, password)
+      signInWithEmailAndPassword(auth, email, password)
         .then((userCredential) => {
-          // Signed up
+          // Signed in
           const user = userCredential.user;
-          console.log("user created successfully: ", user);
-          createUserInDb(user, firstName, lastName);
-          setIsCreating(false);
-          setShowSuccessMessage(true);
+          setShowSuccessMessage({
+            currState: true,
+            type: "signin",
+          });
           setTimeout(() => {
-            setShowSuccessMessage(false);
+            setShowSuccessMessage({
+              currState: false,
+              type: "signin",
+            });
           }, 2000);
+          console.log("user signed in successfully: ", user);
         })
         .catch((error) => {
           const errorCode = error.code;
           const errorMessage = error.message;
           console.error(
-            "error occurred during sign up: ",
+            "error occurred during sign in: ",
             errorCode,
             errorMessage
           );
         })
         .finally(() => {
           setIsCreating(false);
-          ClearInputs();
         });
     } else {
-      alert("please enter email and password to sign up");
+      makeUser();
     }
+  };
+  const makeUser = () => {
+    if (!email || !password || !firstName) {
+      alert("Please fill all required fields.");
+      return;
+    }
+    setIsCreating(true);
+    createUserWithEmailAndPassword(auth, email, password)
+      .then((userCredential) => {
+        const user = userCredential.user;
+        createUserInDb(user, firstName, lastName);
+        setShowSuccessMessage({
+          currState: true,
+          type: "signup",
+        });
+        setTimeout(() => {
+          setShowSuccessMessage({
+            currState: false,
+            type: "signup",
+          });
+        }, 2000);
+
+        ClearInputs();
+      })
+      .catch((error) => {
+        const errorCode = error.code;
+        const errorMessage = error.message;
+        console.error(
+          "error occurred during sign up: ",
+          errorCode,
+          errorMessage
+        );
+      })
+      .finally(() => {
+        setIsCreating(false);
+      });
   };
 
   const ClearInputs = () => {
     setEmail("");
     setPassword("");
+    setFirstName("");
+    setLastName("");
   };
 
   return (
     <div className="signup-page">
-      <h2>Sign Up</h2>
+      <h2>{existingUser ? "Sign In" : "Sign Up"}</h2>
 
-      <label htmlFor="firstname">
-        <strong>First Name: </strong>
-      </label>
-      <input
-        type="firstname"
-        id="firstname"
-        name="firstname"
-        placeholder="enter you First Name here"
-        onChange={(e) => setFirstName(e.target.value)}
-        value={firstName}
-        disabled={isCreating || showSuccessMessage}
-      />
-      <br />
-      <label htmlFor="lastname">
-        <strong>Last Name: </strong>
-      </label>
-      <input
-        type="lastname"
-        id="lastname"
-        name="lastname"
-        placeholder="enter you Last Name here"
-        onChange={(e) => setLastName(e.target.value)}
-        value={lastName}
-        disabled={isCreating || showSuccessMessage}
-      />
-      <br />
+      {!existingUser && (
+        <>
+          <label htmlFor="firstname">
+            <strong>First Name: </strong>
+          </label>
+          <input
+            type="text"
+            id="firstname"
+            name="firstname"
+            placeholder="enter you First Name here"
+            onChange={(e) => setFirstName(e.target.value)}
+            value={firstName}
+            disabled={isCreating || showSuccessMessage.currState}
+          />
+          <br />
+          <label htmlFor="lastname">
+            <strong>Last Name: </strong>
+          </label>
+          <input
+            type="text"
+            id="lastname"
+            name="lastname"
+            placeholder="enter you Last Name here"
+            onChange={(e) => setLastName(e.target.value)}
+            value={lastName}
+            disabled={isCreating || showSuccessMessage.currState}
+          />
+          <br />
+        </>
+      )}
       <label htmlFor="email">
         <strong>Email: </strong>
       </label>
@@ -111,7 +180,7 @@ const SignupUser = () => {
         placeholder="enter you email here"
         onChange={(e) => setEmail(e.target.value)}
         value={email}
-        disabled={isCreating || showSuccessMessage}
+        disabled={isCreating || showSuccessMessage.currState}
       />
       <br />
       <label htmlFor="password">
@@ -124,7 +193,7 @@ const SignupUser = () => {
         placeholder="enter you password here"
         onChange={(e) => setPassword(e.target.value)}
         value={password}
-        disabled={isCreating || showSuccessMessage}
+        disabled={isCreating || showSuccessMessage.currState}
       />
       <br />
       <section
@@ -140,18 +209,32 @@ const SignupUser = () => {
         </button>
         <button
           type="submit"
-          onClick={makeUser}
-          disabled={isCreating || showSuccessMessage}
+          onClick={handleCredentials}
+          disabled={isCreating || showSuccessMessage.currState}
         >
-          {isCreating ? "Creating user..." : "Sign Up"}
+          {existingUser
+            ? "Sign In"
+            : isCreating
+            ? "Creating user..."
+            : "Sign Up"}
         </button>
       </section>
-      <span style={{ textAlign: "center", margin: "0 auto" }}>
-        <a href="">already a user? sign in</a>
-      </span>
+      <button
+        onClick={handleExistingUser}
+        disabled={isCreating || showSuccessMessage.currState}
+        className="toggle-auth-btn"
+      >
+        {existingUser
+          ? "New user? Create an account"
+          : "Already have an account? Sign In here"}
+      </button>
 
-      {showSuccessMessage && (
-        <p className="success-message">User created successfully!</p>
+      {showSuccessMessage.currState && (
+        <p className="success-message">
+          {showSuccessMessage.type === "signup"
+            ? "created successfully!"
+            : "sign-in successful"}
+        </p>
       )}
     </div>
   );

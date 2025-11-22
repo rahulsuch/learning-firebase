@@ -3,8 +3,7 @@
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
-  height: 100vh;
-  h2{
+  h2 {
     align-self: center;
     text-transform: uppercase;
   }
@@ -39,3 +38,17 @@
   90% { opacity: 1; }
   100% { opacity: 0; transform: translateY(-10px); }
 } */
+
+.toggle-auth-btn {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: 1rem;
+  padding-left: 0;
+}
+.toggle-auth-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
